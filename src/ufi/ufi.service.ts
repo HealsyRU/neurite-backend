@@ -5,6 +5,8 @@ import { CreateUfiDTO } from './dto/create-ufi.dto';
 import { MealDaysService } from 'src/meal-days/meal-days.service';
 import { MealsService } from 'src/meals/meals.service';
 import { UsersService } from 'src/users/users.service';
+import { Op } from 'sequelize';
+import { AddUfiToMealDTO } from './dto/add-ufi-to-meal.dto';
 
 @Injectable()
 export class UfiService {
@@ -22,7 +24,6 @@ export class UfiService {
     async createUfi(dto: CreateUfiDTO) {
         try {
             console.log(dto)
-            console.log('Проверка 1')
             const userData = await this.userRepository.getUserById(dto.authorId)
 
             console.log('Создана UserData')
@@ -48,94 +49,7 @@ export class UfiService {
             } catch (e) {
                 console.log(e)
             }
-            console.log('Проверка 3')
-
-            const dtoMealDay = await this.mealDayRepository.getMealDayByDate(dto.date)
-            console.log(dtoMealDay)
-            console.log('Проверка после dtoMealDay')
-        
-            if(!dtoMealDay){
-                //ЕСЛИ НЕТ ДНЯ ПРИЕМА ПИЩИ
-                //СОЗДАЕМ ДЕНЬ И ПРИЁМ ПИЩИ
-                try {
-
-                    console.log('Проверка 4')
-                    const mealDayData = await this.mealDayRepository.createMealDay({
-                        date: dto.date,
-                        IsCompleted: false,
-                        authorId: dto.authorId
-                    })
-    
-                    console.log('Проверка 5')
-                    const mealData = await this.mealRepository.createMeal({
-                        authorId: dto.authorId,
-                        time: dto.time,
-                        type: dto.mealType
-                    })
-    
-                    console.log('Проверка 6')
-                    await mealData.meal.$add('ufis', [ufi.id])
-    
-                    console.log('Проверка 7')
-                    //Установка связей
-                    await userData.$add('mealDays', [mealDayData.mealDay.id])
-                    await mealDayData.mealDay.$add('meals', [mealData.meal.id])
-                    console.log('Проверка 8')
-                } catch (e) {
-
-                    console.log(e)
-
-                }
-                
-            }
-
-            if(dtoMealDay){
-                //ЕСЛИ ЕСТЬ ДЕНь ПРИЕМА ПИЩИ
-                console.log('Проверка 9')
-                if(dto.mealId){
-                    //ЕСЛИ ЕСТЬ ПРИЕМ ПИЩИ
-                    try {
-                        console.log('Проверка 10')
-                        const meal = await this.mealRepository.getMealById(dto.mealId)
-
-                        console.log('Проверка 11')
-                        await meal.$add('ufis', [ufi.id])
-
-                        //await mealData.meal.$add('ufis', [ufi.id])
-    
-                        //console.log('Проверка 7')
-                        //Установка связей
-                        await userData.$add('mealDays', [dtoMealDay.mealDay.id])
-                        await dtoMealDay.mealDay.$add('meals', [meal.id])
-
-                        console.log('Проверка 12')
-                    } catch (e) {
-                        throw new HttpException('Возможно, приём пищи с таким ID не существует', HttpStatus.BAD_REQUEST)
-                    }
-                    
-                }
-
-                if(!dto.mealId){
-                    //ЕСЛИ НЕТ ПРИЕМА ПИЩИ
-                    console.log('Проверка 13')
-                    try {
-                        const mealData = await this.mealRepository.createMeal({
-                            authorId: dto.authorId,
-                            time: dto.time,
-                            type: dto.mealType
-                        })
-                        console.log('Проверка 14')
             
-                        await mealData.meal.$add('ufis', [ufi.id])
-
-                        await userData.$add('mealDays', [dtoMealDay.mealDay.id])
-                        await dtoMealDay.mealDay.$add('meals', [mealData.meal.id])
-
-                    } catch (e) {
-                        throw new HttpException('Ошибка создания приема пищи и/или присвоения ему ЕПП.', HttpStatus.BAD_REQUEST)
-                    }
-                }
-            }
 
             const ufiData = {
                 ufi: ufi
@@ -146,6 +60,88 @@ export class UfiService {
         } catch (e) {
             console.log(e)
             throw new HttpException('Неуточненная ошибка создания ЕПП', HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    async addUfiToMeal(dto: AddUfiToMealDTO) {
+        try {
+            //находим пользователя, приславшего запрос
+            const userData = await this.userRepository.getUserById(dto.userId)
+            if(!userData.id){
+                throw new HttpException('[ADDUFITOMEAL]: UserData не найдена. ', HttpStatus.BAD_REQUEST)
+            }
+            console.log('[ADDUFITOMEAL]: userData получена. userId ' + userData.id)
+            //ищем UFI
+            const ufiData = await this.ufiRepository.findOne({where: {id: dto.ufiId}, include: {all: true}})
+            if(!ufiData.id){
+                throw new HttpException('[ADDUFITOMEAL]: UfiData не найдена. ', HttpStatus.BAD_REQUEST)
+            }
+            console.log('[ADDUFITOMEAL]: ufiData получена. ufiId ' + ufiData.id)
+            //ищем MealDay
+            const dtoMealDay = await this.mealDayRepository.getMealDayByDate({ date: dto.date, userId: dto.userId })
+            if(!dtoMealDay) {
+                const mealDayData = await this.mealDayRepository.createMealDay({
+                    date: dto.date,
+                    IsCompleted: false,
+                    authorId: dto.userId
+                })
+                const mealData = await this.mealRepository.createMeal({
+                    authorId: dto.userId,
+                    time: dto.time,
+                    type: dto.type
+                })
+                //Добавляем в прием пищи UFI
+                await mealData.meal.$add('ufis', [ufiData.id])
+                //Установка связей
+                await userData.$add('mealDays', [mealDayData.mealDay.id])
+                await mealDayData.mealDay.$add('meals', [mealData.meal.id])
+            }
+            if(dtoMealDay) {
+                if(dto.mealId){
+                    try {
+                        const meal = await this.mealRepository.getMealById(String(dto.mealId))
+                        await meal.$add('ufis', [ufiData.id])
+                        //Установка связей
+                        await userData.$add('mealDays', [dtoMealDay.mealDay.id])
+                        await dtoMealDay.mealDay.$add('meals', [meal.id])
+                    } catch (e) {
+                        throw new HttpException('Возможно, приём пищи с таким ID не существует', HttpStatus.BAD_REQUEST)
+                    }
+                }
+                if(!dto.mealId){
+                    try {
+                        const mealData = await this.mealRepository.createMeal({
+                            authorId: dto.userId,
+                            time: dto.time,
+                            type: dto.type
+                        })
+                        await mealData.meal.$add('ufis', [ufiData.id])
+                        await userData.$add('mealDays', [dtoMealDay.mealDay.id])
+                        await dtoMealDay.mealDay.$add('meals', [mealData.meal.id])
+                    } catch (e) {
+                        throw new HttpException('Ошибка создания приема пищи и/или присвоения ему ЕПП.', HttpStatus.BAD_REQUEST)
+                    }
+
+                }
+            }
+
+            const ufiNewData = {
+                ufi: ufiData
+            }
+
+            return ufiNewData
+
+        } catch (e) {
+            throw new HttpException('Неуточненная ошибка добавления ЕПП', HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    async getAllUfiByTitle(title: string) {
+        try {
+            const ufis = await this.ufiRepository.findAll({ where: { title: { [Op.iLike]: `%${title}%`}}})
+            return ufis
+        } catch (e) {
+            console.log('Ошибка нахождения всех UFI по Title')
         }
     }
 

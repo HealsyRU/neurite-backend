@@ -3,6 +3,7 @@ import { CreateMealDayDTO } from './dto/create-meal-day.dto';
 import { MealDaysService } from './meal-days.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MealDay } from './meal-days.model';
+import { GetMealDayByDateDTO } from './dto/get-meal-by-date.dto';
 
 @Controller('meal-days')
 export class MealDaysController {
@@ -26,11 +27,11 @@ export class MealDaysController {
         return this.mealDayService.getMealDayById(id)
     }
 
-    @ApiOperation({ summary: 'Получение UFI по date.'})
+    @ApiOperation({ summary: 'Получение дня приема пищи по дате.'})
     @ApiResponse({ status: 200, type: [MealDay]})
-    @Get('/date/:date')
-    getMealDayByDate(@Param('date') date: string) {
-        console.log('Дата: ' + date)
-        return this.mealDayService.getMealDayByDate(date)
+    @Post('/getMealDayByDate')
+    getMealDayByDate(@Body() getMealDayDTO: GetMealDayByDateDTO) {
+        //console.log('Дата: ' + date)
+        return this.mealDayService.getMealDayByDate(getMealDayDTO)
     }
 }

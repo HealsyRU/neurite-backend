@@ -41,6 +41,7 @@ import { UserMeals } from "./meals/user-meals.model";
               rejectUnauthorized: false 
             }
           },
+          logging: false
         }),
         UsersModule,
         UfiModule,

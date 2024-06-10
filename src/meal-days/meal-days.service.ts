@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { MealDay } from './meal-days.model';
 import { InjectModel } from '@nestjs/sequelize';
 import { CreateMealDayDTO } from './dto/create-meal-day.dto';
+import { Op, where } from 'sequelize';
+import { User } from 'src/users/users.model';
+import { GetMealDayByDateDTO } from './dto/get-meal-by-date.dto';
 
 @Injectable()
 export class MealDaysService {
@@ -32,10 +35,11 @@ export class MealDaysService {
         return mealDay
     }
 
-    async getMealDayByDate(date: string) {
+    async getMealDayByDate(dto: GetMealDayByDateDTO) {
         //console.log('Дата: ' + date)
+        const idUser = 0
         try {
-            const mealDay = await this.mealDayRepository.findOne({where: {date}, include: {all: true, nested: true}})
+            const mealDay = await this.mealDayRepository.findOne({ where: { [Op.and]: [{ date: dto.date }, { authorId: dto.userId }]}, include: {all: true, nested: true}})
             //console.log('БЛЯТЬ')
             //console.log(mealDay)
             if(mealDay){

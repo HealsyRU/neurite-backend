@@ -6,6 +6,7 @@ import { CreateUserDTO } from 'src/users/dto/create-user.dto';
 import { CreateUfiDTO } from './dto/create-ufi.dto';
 import { Ufi } from './ufi.model';
 import { RemoveUfiDTO } from 'src/meals/dto/remove-ufi.dto';
+import { AddUfiToMealDTO } from './dto/add-ufi-to-meal.dto';
 
 @ApiTags('UFI (Единица приема пищи)')
 @Controller('ufi')
@@ -22,11 +23,27 @@ export class UfiController {
         return ufiData;
     }
 
+    @ApiOperation({ summary: 'Добавление существующего UFI к Meal.'})
+    @Post('/addUfiToMeal')
+    async addUfiToMeal(
+        @Body() addUfiToMealDTO: AddUfiToMealDTO
+    ) {
+        const ufiData = await this.ufiService.addUfiToMeal(addUfiToMealDTO)
+        return ufiData;
+    }
+
     @ApiOperation({ summary: 'Получение UFI по ID'})
     @ApiResponse({ status: 200, type: [Ufi]})
     @Get('/:id')
     getAllUsers(@Param('id') id: string) {
         return this.ufiService.getUfiById(Number(id))
+    }
+
+    @ApiOperation({ summary: 'Получение всех UFI по Title'})
+    @ApiResponse({ status: 200, type: [Ufi]})
+    @Get('/search/:title')
+    getAllUfiByTitle(@Param('title') title: string) {
+        return this.ufiService.getAllUfiByTitle(String(title))
     }
 
     @ApiOperation({ summary: 'Удаление Ufi из Meal'})

@@ -60,9 +60,16 @@ export class AuthService {
     }
 
     async logout(refreshToken: string) {
-        const token = await this.tokenService.removeToken(refreshToken)
+        try {
+            const token = await this.tokenService.removeToken(refreshToken)
 
-        return token
+            return token
+
+        } catch (e) {
+            console.log(e)
+            throw new UnauthorizedException({message: 'Ошибка логаута.'})
+
+        }
     }
 
     async refresh(refreshToken: string) {
