@@ -1,17 +1,25 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString } from "class-validator";
-import { User } from "src/users/users.model";
+/* eslint-disable prettier/prettier */
 
-export class AuthDTO {
+import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+
+export class AuthDto {
     
-    @ApiProperty({ description: 'Пользователь'})
-    readonly user: User
+    @IsString({ message: 'Email должен являться строкой'})
+    @IsEmail({}, { message: 'Вы ввели некорректный e-mail. Попробуйте снова'})
+    readonly email: string
 
-    @ApiProperty({ example: 'aijsdiojuUI.GYUDuajskd.oi829Kjdkajs', description: 'Access-token'})
-    @IsString({ message: 'Access-token должен быть строкой (STRING)'})
-    readonly accessToken: string;
+    @IsString({ message: 'Пароль должен являться строкой'})
+    @MaxLength(32, { message: 'Максимальная длина пароля — 32 символа'})
+    @MinLength(8, { message: 'Минимальная длина пароля — 8 символов'})
+    readonly password: string
 
-    @ApiProperty({ example: 'aijsdiojuUI.GYUDuajskd.oi829Kjdkajs', description: 'Refresh-token'})
-    @IsString({ message: 'Refresh-token должен быть строкой (STRING)'})
-    readonly refreshToken: string;
+    readonly energy: number
+
+    readonly sex: number
+
+    readonly pal: string
+
+    readonly birthDate: string
+
+    readonly ccalNorm: number
 }

@@ -1,122 +1,119 @@
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
-import { RolesService } from 'src/roles/roles.service';
-import { User } from 'src/users/users.model';
-import { UsersService } from 'src/users/users.service';
-import { CreateUserDTO } from 'src/users/dto/create-user.dto';
-import * as bcrypt from 'bcrypt';
-import { TokensService } from 'src/tokens/tokens.service';
-import { AuthDTO } from './dto/auth.dto';
+/* eslint-disable prettier/prettier */
+import { BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
+import { UserService } from 'src/account/account.service';
+import { AuthDto } from './dto/auth.dto';
+import { JwtService } from '@nestjs/jwt';
+import { verify } from 'argon2';
+import { Response } from 'express';
 
 @Injectable()
 export class AuthService {
 
-    constructor( 
-        private userService: UsersService,
-        private tokenService: TokensService
-    ) {}
+    EXPIRE_DAY_REFRESH_TOKEN = 7
+	REFRESH_TOKEN_NAME = 'refreshToken'
 
-    async login(userDto: CreateUserDTO) {
-        const user = await this.validateUser(userDto)
-        const tokens = await this.tokenService.generateTokens(user)
-        await this.tokenService.saveToken(user.id, tokens.refreshToken)
+	constructor(
+		private jwt: JwtService,
+		private userService: UserService
+	) {}
 
-        const loginData: AuthDTO = {
-            user: user,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken
-        }
+	async login(dto: AuthDto) {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { password, ...user } = await this.validateUser(dto)
+		const tokens = this.issueTokens(user.id)
 
-        return loginData
+		return {
+			user,
+			...tokens
+		}
+	}
 
-    }
+	async register(dto: AuthDto) {
+		const oldUser = await this.userService.getUserByEmail(dto.email)
 
-    async registration(userDto: CreateUserDTO) {
-        
-        const candidate = await this.userService.getUserByEmail(userDto.email)
-        console.log(candidate)
-        if(candidate){
-            throw new HttpException('Пользователь с таким email уже существует.', HttpStatus.BAD_REQUEST)
-        }
+		if (oldUser) throw new BadRequestException('Аккаунт уже зарегистрирован!')
 
-        const hashPassword = await bcrypt.hash(userDto.password, 3)
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { password, ...user } = await this.userService.createUser(dto)
 
-        const user = await this.userService.createUser({
-            email: userDto.email,
-            password: hashPassword
-        })
+		const tokens = this.issueTokens(user.id)
 
-        const tokens = await this.tokenService.generateTokens(user)
-        await this.tokenService.saveToken(user.id, tokens.refreshToken)
+		return {
+			user,
+			...tokens
+		}
+	}
 
-        const registerData: AuthDTO = {
-            user: user,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken
-        }
+	async getNewTokens(refreshToken: string) {
+		const result = await this.jwt.verifyAsync(refreshToken)
+		if (!result) throw new UnauthorizedException('Invalid refresh token')
 
-        return registerData
+		console.log(result.id)
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const user = await this.userService.getUserById(result.id)
 
-    }
+		console.log(user)
 
-    async logout(refreshToken: string) {
-        try {
-            const token = await this.tokenService.removeToken(refreshToken)
+		const tokens = this.issueTokens(user.id)
 
-            return token
+		return {
+			user,
+			...tokens
+		}
+	}
 
-        } catch (e) {
-            console.log(e)
-            throw new UnauthorizedException({message: 'Ошибка логаута.'})
+	private issueTokens(userId: string) {
+        //ИЗБЕГАТЬ ПОПАДАНИЯ SENSITIVE DATA
+		const data = { id: userId }
 
-        }
-    }
+		const accessToken = this.jwt.sign(data, {
+			expiresIn: '1h'
+		})
 
-    async refresh(refreshToken: string) {
-        console.log('[REFRESH/SERVICE. Вход в функцию]')
-        if (!refreshToken) {
-            throw new UnauthorizedException({message: 'Refresh token is required.'})
-        }
+		const refreshToken = this.jwt.sign(data, {
+			expiresIn: '7d'
+		})
 
-        console.log('[REFRESH/SERVICE. Начало валидации]')
-        const userData = await this.tokenService.validateRefreshToken(refreshToken)
-        console.log('[REFRESH/SERVICE. Конец валидации]')
-        console.log(userData.id)
+		return { accessToken, refreshToken }
+	}
 
-        console.log('[REFRESH/SERVICE. Начало поиска в Базе токенов]')
-        const tokenFromDb = await this.tokenService.findToken(refreshToken)
+	private async validateUser(dto: AuthDto) {
+		const user = await this.userService.getUserByEmail(dto.email)
 
-        console.log(tokenFromDb)
-        if (!userData || !tokenFromDb) {
-            console.log('[REFRESH/SERVICE. Ошибка, нет userData или tokenFromDb]')
-            throw new UnauthorizedException({message: 'Error at validateRefreshToken or findToken.'})
-        }
+		if (!user) throw new UnauthorizedException('Неправильный e-mail или пароль')
 
-        console.log(Object(userData))
-        console.log('Проверка 1')
-        const user = await this.userService.getUserById(userData.id)
+		const isValid = await verify(user.password, dto.password)
 
-        console.log('Проверка 2')
-        const tokens = await this.tokenService.generateTokens(user)
+		if (!isValid) throw new UnauthorizedException('Неправильный e-mail или пароль')
 
-        console.log('Проверка 3')
-        await this.tokenService.saveToken(user.id, tokens.refreshToken)
+		return user
+	}
 
-        const refreshData: AuthDTO = {
-            refreshToken: tokens.refreshToken,
-            accessToken: tokens.accessToken,
-            user: user
-        }
+	addRefreshTokenToResponse(res: Response, refreshToken: string) {
+		const expiresIn = new Date()
+		expiresIn.setDate(expiresIn.getDate() + this.EXPIRE_DAY_REFRESH_TOKEN)
 
-        return refreshData
-    }
+		res.cookie(this.REFRESH_TOKEN_NAME, refreshToken, {
+			httpOnly: true,
+			domain: 'localhost',
+			secure: true,
+			expires: expiresIn,
+			// lax if production
+			sameSite: 'lax'
+		})
+	}
 
-    private async validateUser(userDto: CreateUserDTO) {
-        const user = await this.userService.getUserByEmail(userDto.email);
-        const passwordEquals = await bcrypt.compare(userDto.password, user.password);
-        if (user && passwordEquals) {
-            return user;
-        }
-        throw new UnauthorizedException({message: 'Некорректный емайл или пароль.'})
-    }
+	removeRefreshTokenFromResponse(res: Response) {
+		console.log('Вызов удаления рефреш')
+		res.cookie(this.REFRESH_TOKEN_NAME, '', {
+			httpOnly: true,
+			secure: true,
+			domain: 'localhost',
+			expires: new Date(0),
+			// lax if production
+			sameSite: 'lax'
+		})
+	}
+
+    
 }

@@ -1,85 +1,65 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+/* eslint-disable prettier/prettier */
+import { Body, Controller, HttpCode, Post, Req, Res, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CreateUserDTO } from 'src/users/dto/create-user.dto';
-import { AuthDTO } from './dto/auth.dto';
+import { AuthDto } from './dto/auth.dto';
 import { Request, Response } from 'express';
-import { Token } from 'src/tokens/tokens.model';
 
-
-
-@ApiTags('Система авторизации')
 @Controller('auth')
 export class AuthController {
 
     constructor(private authService: AuthService) { }
+    
+    @UsePipes(new ValidationPipe())
+	@HttpCode(200)
+	@Post('login')
+	async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
+		const { refreshToken, ...response } = await this.authService.login(dto)
+		this.authService.addRefreshTokenToResponse(res, refreshToken)
 
-    @ApiOperation({ summary: 'Регистрация нового аккаунта.'})
-    @ApiResponse({ status: 200, type: AuthDTO})
-    @Post('/registration')
-    async registration(
-        @Body() userDTO: CreateUserDTO,
-        @Res({ passthrough: true }) response: Response
-    ) {
-        const userData = await this.authService.registration(userDTO)
+		return response
+	}
 
-        response.cookie('refreshToken', userData.refreshToken, {maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true})
+	@UsePipes(new ValidationPipe())
+	@HttpCode(200)
+	@Post('registration')
+	async register(
+		@Body() dto: AuthDto,
+		@Res({ passthrough: true }) res: Response
+	) {
+		const { refreshToken, ...response } = await this.authService.register(dto)
+		this.authService.addRefreshTokenToResponse(res, refreshToken)
 
-        return userData;
-    }
+		return response
+	}
 
-    @ApiOperation({ summary: 'Авторизация (логин) созданного аккаунта.'})
-    @ApiResponse({ status: 200, type: AuthDTO})
-    @Post('/login')
-    async login(
-        @Body() userDTO: CreateUserDTO,
-        @Res({ passthrough: true }) response: Response
-    ) {
-        const userData = await this.authService.login(userDTO)
+	@HttpCode(200)
+	@Post('login/access-token')
+	async getNewTokens(
+		@Req() req: Request,
+		@Res({ passthrough: true }) res: Response
+	) {
+		const refreshTokenFromCookies =
+			req.cookies[this.authService.REFRESH_TOKEN_NAME]
 
-        response.cookie('refreshToken', userData.refreshToken, {maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true})
+		if (!refreshTokenFromCookies) {
+			this.authService.removeRefreshTokenFromResponse(res)
+			throw new UnauthorizedException('Refresh token not passed')
+		}
 
-        return userData;
-    }
+		const { refreshToken, ...response } = await this.authService.getNewTokens(
+			refreshTokenFromCookies
+		)
 
-    @ApiOperation({ summary: 'Logout (выход) из созданного аккаунта.'})
-    @ApiResponse({ status: 200, type: Token})
-    @Post('/logout')
-    async logout(
-        @Res({ passthrough: true }) response: Response,
-        @Req() request: Request
-    ) {
-        const { refreshToken } = request.cookies
-        console.log('Проверка 1 ' + refreshToken)
+		this.authService.addRefreshTokenToResponse(res, refreshToken)
 
-        const token = await this.authService.logout(refreshToken)
-        console.log('Проверка 2 ')
+		return response
+	}
 
-        response.clearCookie('refreshToken')
-
-        return token;
-    }
-
-    @ApiOperation({ summary: 'Refresh token process.'})
-    @ApiResponse({ status: 200, type: Token})
-    @Get('/refresh')
-    async refresh(
-        @Res({ passthrough: true }) response: Response,
-        @Req() request: Request
-    ) {
-        console.log('[/refresh. Начата работа]: controller /refresh')
-        const { refreshToken } = request.cookies
-
-        console.log('[/refresh. Cookie успешно подцеплена]: ' + refreshToken)
-
-        console.log('[/refresh. Начат процесс refresh с токеном refreshToken]')
-        const userData = await this.authService.refresh(refreshToken)
-        console.log('[/refresh. Закончен процесс refresh, получена userData]')
-
-        response.cookie('refreshToken', userData.refreshToken, {maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true})
-        
-        return userData;
-    }
-
+	@HttpCode(200)
+	@Post('logout')
+	async logout(@Res({ passthrough: true }) res: Response) {
+		this.authService.removeRefreshTokenFromResponse(res)
+		return true
+	}
 
 }

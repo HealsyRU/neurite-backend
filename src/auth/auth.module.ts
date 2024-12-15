@@ -1,23 +1,25 @@
+/* eslint-disable prettier/prettier */
 import { forwardRef, Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { User } from 'src/users/users.model';
-import { Token } from 'src/tokens/tokens.model';
 import { JwtModule } from '@nestjs/jwt';
-import { TokensService } from 'src/tokens/tokens.service';
-import { UsersService } from 'src/users/users.service';
-import { TokensModule } from 'src/tokens/tokens.module';
-import { UsersModule } from 'src/users/users.module';
+import { AccountModule } from 'src/account/account.module';
+import { JwtStrategy } from './jwt.strategy';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { getJwtConfig } from 'src/config/jwt.config';
+import { PrismaService } from 'src/prisma.service';
 
 @Module({
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy, PrismaService],
   controllers: [AuthController],
   imports: [
-    SequelizeModule.forFeature([User, Token]),
-    forwardRef(() => JwtModule),
-    forwardRef(() => TokensModule),
-    forwardRef(() => UsersModule),
+    forwardRef(() => AccountModule),
+    ConfigModule,
+		JwtModule.registerAsync({
+			imports: [ConfigModule],
+			inject: [ConfigService],
+			useFactory: getJwtConfig
+		})
   ],
   exports: [
     AuthService

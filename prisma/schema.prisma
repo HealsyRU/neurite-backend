@@ -1,0 +1,449 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL") // uses connection pooling
+}
+
+//13.10.24 DEVELOPMENT
+//14.10.24 DONE
+model User {
+  id             String @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  username       String @unique @default(cuid())
+  email          String @unique
+  password       String
+  level          Int @default(0)
+  isVerified     Boolean @default(false)
+  isOnboarded    Boolean @default(false)
+  isMainFilled   Boolean @default(false)
+
+  isConfirmed    Boolean @default(false)
+  activationLink String @default(cuid())
+  //У одного Account может быть много User
+  bodies          Body[]
+
+  roles          Role[]
+
+  @@map("account")
+}
+
+//13.10.24 DEVELOPMENT
+//14.10.24 DONE
+model Role {
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  id             String @id @default(cuid())
+  value          String @unique 
+  description    String 
+  users       User[]
+
+  @@map("role")
+}
+
+//13.10.24 DEVELOPMENT
+//14.10.24 DONE
+model LimitationSchema {
+  id                String @id @default(cuid())
+
+  bodyLimit         Int @default(1)
+  
+  mealDaysLimit     Int @default(7)
+  mealUnitsLimit    Int @default(3)
+  mealFoodUnitsLimit  Int @default(10)
+
+  @@map("limitation_schema")
+}
+
+//13.10.24 DEVELOPMENT
+//14.10.24 DONE
+model Body {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  bodyName        String @default(cuid())
+  sex             Int @default(0)
+  birthDate       String 
+  pal             String @default("1.2")
+  ccalNorm        Int @default(2500) //Текущая норма калорий в день
+  mainGoal        Int @default(0) //Основная цель
+
+  mealSchema      MealSchemaItem[]
+  mealDays        MealDay[]
+
+  user            User   @relation(fields: [userId], references: [id])
+  userId          String  @map("user_id")
+
+  parameters      Parameter[]
+  BodyFavoriteFoodUnits BodyFavoriteFoodUnits[]
+
+  @@map("body")
+  
+}
+
+model BodyFavoriteFoodUnits {
+  id         String   @default(cuid()) @unique
+  body       Body     @relation(fields: [bodyId], references: [id])
+  bodyId     String 
+  foodUnit   FoodUnit @relation(fields: [foodUnitId], references: [id])
+  foodUnitId String
+
+  @@id([bodyId, foodUnitId, id])
+}
+
+//13.10.24 DEVELOPMENT
+//14.10.24 DONE
+model Parameter {
+
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  title          String 
+  value          Int
+
+  goals          Goal[]
+  currentGoal    CurrentGoal?
+
+  master            MasterParameter @relation(fields: [masterId], references: [id])
+  masterId          String  @map("master_id")
+
+  body            Body   @relation(fields: [bodyId], references: [id])
+  bodyId          String  @map("body_id")
+
+  @@map("parameter")
+}
+
+model MasterParameter {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  title          String
+  category       String
+
+  parameters     Parameter[]
+
+  @@map("master_parameter")
+}
+
+model CurrentGoal {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  value          Int
+
+  parameter      Parameter  @relation(fields: [parameterId], references: [id])
+  parameterId    String @unique @map("parameter_id")
+
+  @@map("current_goal")
+}
+
+model Goal {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  value          Int
+
+  parameter      Parameter  @relation(fields: [parameterId], references: [id])
+  parameterId    String  @map("parameter_id")
+
+  @@map("goal")
+}
+
+model MealSchemaItem {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  title          String 
+  time           String
+
+  energy         Int //Процент от общей калорийности дня
+  protein        Int
+  fat            Int
+  carb           Int
+
+  body           Body   @relation(fields: [bodyId], references: [id])
+  bodyId         String  @map("body_id")
+}
+
+model MealDay {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  body           Body   @relation(fields: [bodyId], references: [id])
+  bodyId         String  @map("body_id")
+  date           String
+
+  mealUnits      MealUnit[]
+
+  @@map("meal_day")
+}
+
+model MealUnit {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  title          String 
+  time           String
+  target         Int @default(0)
+
+  meal           Meal   @relation(fields: [mealId], references: [id])
+  mealId         String  @map("meal_id")
+
+  mealDay           MealDay  @relation(fields: [mealDayId], references: [id])
+  mealDayId         String  @map("meal_day_id")
+
+  @@map("meal_unit")
+}
+
+model Meal {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  authorId       String
+  isPublic       Boolean @map("is_public") @default(false)
+
+  mealUnit       MealUnit[]
+  matrixMealDays  MatrixMealDay[]
+  mealCategories  MealCategory[]
+
+  mealFoodUnits MealFoodUnits[]
+
+  @@map("meal")
+}
+
+model MealFoodUnits {
+  id          String   @default(cuid()) @unique         
+  meal        Meal     @relation(fields: [mealId], references: [id])
+  mealId      String // relation scalar field (used in the `@relation` attribute above)
+  foodUnit    FoodUnit @relation(fields: [foodUnitId], references: [id])
+  foodUnitId  String // relation scalar field (used in the `@relation` attribute above)
+
+  portion     FoodPortion?  @relation(fields: [portionId], references: [id])
+  portionId   String?  @map("portion_id")
+
+  multiplier  Int @default(1)
+  cost        Int? 
+
+  @@id([mealId, foodUnitId, id])
+}
+
+model FoodUnit {
+  id             String @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  foodPortions   FoodPortion[]
+  foodCategories   FoodCategory[]
+  authorId       String
+  barcode        String
+  title          String
+  isPublic       Boolean @map("is_public") @default(false)
+  isVerified     Boolean @map("is_verified") @default(false)
+
+  nutrientSchema        NutrientSchema @relation(fields: [nutrientSchemaId], references: [id])
+  nutrientSchemaId      String @unique @map("food_unit_id")
+
+  mealFoodUnits MealFoodUnits[]
+  BodyFavoriteFoodUnits BodyFavoriteFoodUnits[]
+
+  @@map("food_unit")
+}
+
+model FoodPortion {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  quantity Int
+  measure String
+  
+  foodPortionCategory FoodPortionCategory @relation(fields: [foodPortionCategoryId], references: [id])
+  foodPortionCategoryId String  @map("food_portion_category_id")
+  
+  foodUnit          FoodUnit @relation(fields: [foodUnitId], references: [id])
+  foodUnitId        String @map("food_unit_id")
+
+  mealFoodUnits MealFoodUnits[]
+
+  @@map("food_portion")
+}
+
+
+model FoodPortionCategory {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  title          String @unique
+  authorId       String
+  isSystem       Boolean @map("is_system") @default(false)
+
+  foodPortions   FoodPortion[]
+
+  @@map("food_portion_category")
+}
+
+model NutrientSchema {
+  id             String   @id @default(cuid())
+  
+  glycemicIndex  Float?
+  glycemicLoad   Float?
+  insulinIndex  Float?
+
+  energy         Float 
+  protein        Float 
+  fat            Float 
+  carb           Float 
+  alcohol        Float?
+  water          Float?
+  fiber          Float? 
+  
+
+
+  //Углеводы
+  sugar          Float?
+  sucrose        Float? //сахароза
+  glucose        Float?
+  fructose       Float?
+  lactose        Float?
+  maltose        Float?
+  galactose      Float?
+  strach         Float? //Крахмал
+
+  //Жиры
+  trans Float?
+  saturated Float?
+  mono Float?
+  poly Float?
+  omega3 Float?
+  omega6 Float?
+
+  //Витамины и витаминоподобные
+  bCar Float? //Бета-каротин
+  vitA Float?
+  vitC Float? //Аскорбиновая
+  vitK Float?
+  vitE Float? //Токоферол
+  vitD Float? //Кальциферол
+  vitB1 Float? //Тиамин
+  vitB2 Float? //Рибофлавин
+  vitB3 Float? //PP, ниацин
+  vitB4 Float?
+  vitB5 Float?
+  vitB6 Float?
+  vitB7 Float?
+  vitB9 Float?
+  vitB11 Float? //L-карнитин
+  vitB12 Float? //Кобаламин
+  q10 Float? //коэнзим Q10, убихинон
+  vitN Float? //липоевая кислота
+  vitH Float? //Биотин
+  
+
+  //Другое
+  creatine Float?
+  cholesterol Float?
+  teobromine Float?
+  lycopene Float?
+  caffeine Float?
+
+  //Микроэлементы
+  ca Float? //кальций Ca
+  ph Float? //Фосфор P
+  mg Float? //Mg магний
+  fe Float?
+  zn Float? //Цинк
+  i Float?
+  cu Float?
+  mn Float? //Мn марганец
+  se Float? //селен
+  si Float? //кремний
+  f Float? // фтор F
+  k Float? //K
+  na Float? //Na
+  cl Float? //Cl
+  cr Float? //Хром
+  co Float? //Кобальт
+  mo Float? //Молибден
+  s Float? //Сера
+
+  //Незаменимые аминокислоты
+  tryptophan Float?
+  threonine Float?
+  isoleucine Float?
+  leucine Float?
+  lysine Float?
+  methionine Float?
+  phenylalanine Float?
+  valine Float?
+  histidine Float?
+
+  //Заменимые аминокислоты
+  cysteine Float?
+  tyrosine Float?
+  arginine Float?
+  serine Float?
+  asparagine Float?
+  glutamine Float?
+  alanine Float?
+  glycine Float?
+  proline Float?
+
+  foodUnit FoodUnit?
+
+  @@map("nutrient_schema")
+}
+
+
+//13.10.24 DEPRECATED
+//сделать фактически матрицей
+model MatrixMealDay {
+  id String @id @default(cuid())
+
+  isPublic Boolean @map("is_public") @default(false)
+  //У одного MealDay может быть много UserMealDay
+  meals Meal[]
+
+  authorId String 
+
+  @@map("matrix_meal_day")
+}
+
+
+//13.10.24 DEPRECATED
+model MealCategory {
+  id String @id @default(cuid())
+
+  title String @unique
+
+  meals Meal[]
+
+  @@map("meal_category")
+}
+
+
+//13.10.24 DEPRECATED
+model FoodCategory {
+  id String @id @default(cuid())
+
+  title String @unique
+
+  foodUnits FoodUnit[]
+
+  @@map("food_category")
+}
+
+
