@@ -99,7 +99,7 @@ export class AuthService {
 			secure: true,
 			expires: expiresIn,
 			// lax if production
-			sameSite: 'lax'
+			sameSite: 'none',
 		})
 	}
 
@@ -111,8 +111,7 @@ export class AuthService {
 			//'localhost'
 			domain: '.vercel.app',
 			expires: new Date(0),
-			// lax if production
-			sameSite: 'lax'
+			sameSite: 'none',
 		})
 	}
 
