@@ -95,7 +95,7 @@ export class AuthService {
 
 		res.cookie(this.REFRESH_TOKEN_NAME, refreshToken, {
 			httpOnly: true,
-			domain: 'healsy.vercel.app',
+			domain: 'healsy.vercel',
 			secure: true,
 			expires: expiresIn,
 			// lax if production
@@ -109,7 +109,7 @@ export class AuthService {
 			httpOnly: true,
 			secure: true,
 			//'localhost'
-			domain: 'healsy.vercel.app',
+			domain: 'healsy.vercel',
 			expires: new Date(0),
 			// lax if production
 			sameSite: 'lax'
