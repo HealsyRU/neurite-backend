@@ -31,7 +31,7 @@ async function start() {
 
   app.use(cookieParser());
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://192.168.31.94:3000', 'http://192.168.31.94:3001', '0.0.0.0', 'http://192.168.31.94/'],
+    origin: ['http://localhost:3000', 'http://192.168.31.94:3000', 'http://192.168.31.94:3001', '0.0.0.0', 'http://192.168.31.94/', 'https://healsy.vercel.app'],
     credentials: true,
     exposedHeaders: 'set-cookie'
   })
