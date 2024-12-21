@@ -95,7 +95,7 @@ export class AuthService {
 
 		res.cookie(this.REFRESH_TOKEN_NAME, refreshToken, {
 			httpOnly: true,
-			domain: 'onrender.com',
+			domain: 'healsy.ru',
 			secure: true,
 			expires: expiresIn,
 			// lax if production
@@ -109,7 +109,7 @@ export class AuthService {
 			httpOnly: true,
 			secure: true,
 			//'localhost'
-			domain: 'onrender.com',
+			domain: 'healsy.ru',
 			expires: new Date(0),
 			sameSite: 'lax',
 		})
