@@ -1,0 +1,1 @@
+export declare const CurrentBody: (...dataOrPipes: ("createdAt" | "updatedAt" | "id" | "bodyName" | "sex" | "birthDate" | "pal" | "ccalNorm" | "mainGoal" | "userId" | import("@nestjs/common").PipeTransform<any, any> | import("@nestjs/common").Type<import("@nestjs/common").PipeTransform<any, any>>)[]) => ParameterDecorator;
